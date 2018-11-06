@@ -1,72 +1,80 @@
 # Titanic Machine Learning problem
 install.packages("ggplot2")
 library("ggplot2")
+install.packages("gdata")
+library("gdata")
 
 # Set the working directory
 
-setwd("D:/Sri_DataScience_Practice/Titanic Machine Learning Kaggle")
+setwd("D:/Sri_DataScience_Practice/Kaggle Titanic Problem")
 
 # Read the data set
-train = read.csv("train.csv")
-test = read.csv("test.csv")
+train_1 = read.csv("train.csv")
+test_1 = read.csv("test.csv")
 
 # Check the data
-View(train)
-str(train)
-summary(train)
+View(train_1)
+str(train_1)
+summary(train_1)
 
 # Plot historgram to view the data
-hist(train$PassengerId)
-hist(train$Survived) # 2 categories
-hist(train$Pclass) # 3 classes
-NROW(which(is.na(train$Pclass))) # 0 missing values
+hist(train_1$PassengerId, labels = TRUE, col = "blue")
+hist(train_1$Survived, labels = TRUE, col = "blue") # 2 categories
+NROW(which(is.na(train_1$Survived)))
 
-barplot(summary(train$Sex))
-ggplot(data.frame(train$Sex), aes(x=train$Sex))+geom_bar() # No Missing values
+hist(train_1$Pclass, labels = TRUE, col = "green") # 3 classes
+NROW(which(is.na(train_1$Pclass))) # 0 missing values
 
-hist(train$Age)
-NROW(which(is.na(train$Age))) # 177 NA values in Age
+barplot(summary(train_1$Sex), names.arg = c("Female","Male"), col = "darkred", main = "Gender wise Passenger count")
+ggplot(data.frame(train_1$Sex), aes(x=train_1$Sex), colour = "dark red")+geom_bar(stat = "count") # No Missing values
 
-hist(train$SibSp)
-NROW(which(is.na(train$SibSp))) # 0 missing values
-ggplot(data.frame(train$SibSp), aes(x=train$SibSp))+geom_bar(show.legend = TRUE, na.rm = TRUE)
+hist(train_1$Age, labels = TRUE, col = "dark red", main = "Age distribution")
+NROW(which(is.na(train_1$Age))) # 177 NA values in Age
 
-hist(train$Parch)
-NROW(which(is.na(train$Parch)))
-ggplot(data.frame(train$Parch), aes(x=train$Parch)) + geom_bar(show.legend = TRUE,na.rm = FALSE) 
+hist(train_1$SibSp, labels = TRUE,
+     col = "dark green")
+NROW(which(is.na(train_1$SibSp))) # 0 missing values, Most of them dont have siblings
+ggplot(data.frame(train_1$SibSp), aes(x=train_1$SibSp) )+geom_bar(show.legend = TRUE, stat = 'count')
 
-hist(train$Ticket)
-NROW(which(trimws(train$Ticket)=="")) # 0 rows
+hist(train_1$Parch, labels = TRUE, col = "springgreen3")
+NROW(which(is.na(train_1$Parch)))
+ggplot(data.frame(train_1$Parch), aes(x=train_1$Parch)) + geom_bar(show.legend = TRUE,na.rm = FALSE)+theme_classic()
 
 
-hist(train$Fare)
-NROW(which(is.na(train$Fare))) # 0 rows
-ggplot(data.frame(train$Fare), aes(x=train$Fare)) + geom_bar(show.legend = TRUE,na.rm = FALSE)
+barplot(summary(train_1$Ticket))
+NROW(which(trim(train_1$Ticket)=="")) # 0 rows
 
-NROW(which(trimws(train$Cabin)=="")) # 687 empty values. Empty Majorily
-ggplot(data.frame(train$Cabin), aes(x=train$Cabin)) + geom_bar(show.legend = TRUE,na.rm = FALSE)
 
-NROW(which(trimws(train$Embarked)=="")) # 2 missing values
-ggplot(data.frame(train$Embarked), aes(x=train$Embarked)) + geom_bar(show.legend = TRUE,na.rm = FALSE)
+hist(train_1$Fare, labels = TRUE, col = "turquoise1")
+NROW(which(is.na(train_1$Fare))) # 0 rows
+barplot(table(train_1$Fare), legend.text = TRUE)
+ggplot(data.frame(train_1$Fare), aes(x=train_1$Fare)) + geom_bar(show.legend = TRUE,stat = "count")
 
-View(train[which(trimws(train$Embarked)==""),])
-View(train[train$Ticket==113572,])
+NROW(which(trim(train_1$Cabin)=="")) # 687 empty values. Empty Majorily
+ggplot(data.frame(train_1$Cabin), aes(x=train_1$Cabin)) + geom_bar(show.legend = TRUE,na.rm = FALSE)+ geom_smooth()
+
+NROW(which(trim(train_1$Embarked)=="")) # 2 missing values
+ggplot(data.frame(train_1$Embarked), aes(x=train_1$Embarked)) + geom_bar(show.legend = TRUE, stat = "count")
+
+View(train_1[which(trim(train_1$Embarked)==""),])
+View(train_1[train_1$Ticket==113572,])
 
 # Imputing missing value of Embarked with S
-train$Embarked[which(trimws(train$Embarked)=="")] = "S"
+train_1$Embarked[which(trim(train_1$Embarked)=="")] = "S"
 
 
 # Check the structure of data frame again
 str(train)
 
+
 # Create new data set excluding Name, Cabin (as it has mostly missging values)
 
-train_new = train[,!colnames(train) %in% c("Name","Cabin")]
+train_new = train_1[,!colnames(train_1) %in% c("Name","Cabin")]
 View(train_new)
 str(train_new)
 
 train_new$Sex = as.factor(train_new$Sex)
-train_new$Ticket = as.factor(train$Ticket)
+train_new$Ticket = as.factor(train_new$Ticket)
 train_new$Embarked = as.factor(train_new$Embarked)
 
 # Create dummy columns for factor variables.
@@ -77,30 +85,23 @@ str(train_new)
 train_new_dummy = fastDummies::dummy_columns(train_new)
 View(train_new_dummy)
 
+# Convert certain continuos variables to factors
 train_new$Survived = as.factor(train_new$Survived)
-
-
-
-# Perform ANOVA for continuos variables
-str(train_new)
-mod = aov(train_new$Fare~train_new$Survived)
-summary(mod)
-
-# F Value istrain_new high & p value is low. Significant
-TukeyHSD(mod, conf.level = 0.95)
+train_new$Pclass = as.factor(train_new$Pclass)
+train_new$Embarked = as.factor(train_new$Embarked)
 
 #Impute missing values for age
 
 View(train_new[which(is.na(train_new$Age)),])
-table(train_new$Pclass, train_new$Survived)
+str(train_new)
+View(train_new)
 
-train_new$Embarked = as.factor(train_new$Embarked)
-train_new$Pclass = as.factor(train_new$Pclass)
+
 train_new$Fare = as.factor(ifelse(train_new$Fare<=100,1,ifelse(train_new$Fare<=200,2,ifelse(train_new$Fare<=300,3,ifelse(train_new$Fare<=400,4,ifelse(train_new$Fare<=500,5,6))))))
 ggplot(data.frame(train_new$Fare), aes(x=train_new$Fare))+geom_bar()
 
-train_new$Sex = as.factor(ifelse(train_new$Sex=='male',1,0))
-train_new$Embarked = as.factor(ifelse(train_new$Embarked=="C",1,ifelse(train_new$Embarked=="Q",2,3)))
+#train_new$Sex = as.factor(ifelse(train_new$Sex=='male',1,0))
+#train_new$Embarked = as.factor(ifelse(train_new$Embarked=="C",1,ifelse(train_new$Embarked=="Q",2,3)))
 
 # write function for mode
 
@@ -132,20 +133,37 @@ View(train_new)
 mod_age = aov(train_new$Age~train_new$Survived) # p value & F stat value are less
 summary(mod_age) # InSignificant
 
-hist(train_new$Age)
+hist(train_new$Age, labels = TRUE, col = 'dark red')
 summary(train_new$Age)
-ggplot(data.frame(train_new$Age),aes(x=train_new$Age))+geom_bar()
+ggplot(data.frame(train_new$Age),aes(x=train_new$Age))+geom_bar(stat = "count")
 
 # Converting AGE to categorical variable
 train_new$Age = as.factor(ifelse(train_new$Age<=10,"Infant",ifelse(train_new$Age<=25,"Young",ifelse(train_new$Age<=40,"Adult",ifelse(train_new$Age<=60,"Elder","Old")))))
 str(train_new)
 
+# Perform ANOVA for continuos variables
+str(train_new)
+mod = aov(train_new$Fare~train_new$Survived)
+summary(mod) # F value is high & P value is very less than 0.05
+# Fare is a significant variable
+
+# F Value istrain_new high & p value is low. Significant
+TukeyHSD(mod, conf.level = 0.95)
+str(train_new)
+
+mod = aov(train_new$SibSp~train_new$Survived)
+summary(mod) # F statistic is low & p value is high. Insignificant
+
+mod = aov(train_new$Parch~train_new$Survived)
+summary(mod) # F value is slightly high & p value is just 0.01. Slightly Significant
+
 # Perform Chi square test on categorical variables
+chisq.test(train_new$Pclass, train_new$Survived) # Significant
 chisq.test(train_new$Sex, train_new$Survived) # Significant
 chisq.test(train_new$Age, train_new$Survived) # Significant
-chisq.test(train_new$Pclass, train_new$Survived) # Significant
-chisq.test(train_new$Fare, train_new$Survived) # Significant
 chisq.test(train_new$Embarked, train_new$Survived) # Significant
+
+# After Chi square & ANOVA, only Sibsp is insignificant
 
 # Run Random Forest with new data set & get important variables
 
