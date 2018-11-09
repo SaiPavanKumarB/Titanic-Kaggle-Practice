@@ -18,7 +18,7 @@ str(train_1)
 summary(train_1)
 
 # Plot historgram to view the data
-hist(train_1$PassengerId, labels = TRUE, col = "blue")
+#hist(train_1$PassengerId, labels = TRUE, col = "blue")
 hist(train_1$Survived, labels = TRUE, col = "blue") # 2 categories
 NROW(which(is.na(train_1$Survived)))
 
@@ -36,17 +36,18 @@ hist(train_1$SibSp, labels = TRUE,
 NROW(which(is.na(train_1$SibSp))) # 0 missing values, Most of them dont have siblings
 ggplot(data.frame(train_1$SibSp), aes(x=train_1$SibSp) )+geom_bar(show.legend = TRUE, stat = 'count')
 
-hist(train_1$Parch, labels = TRUE, col = "springgreen3")
+hist(train_1$Parch, labels = TRUE, col = "dark green")
 NROW(which(is.na(train_1$Parch)))
-ggplot(data.frame(train_1$Parch), aes(x=train_1$Parch)) + geom_bar(show.legend = TRUE,na.rm = FALSE)+theme_classic()
+ggplot(data.frame(train_1$Parch), aes(x=train_1$Parch)) + geom_bar(show.legend = TRUE,na.rm = FALSE)
 
 
 barplot(summary(train_1$Ticket))
 NROW(which(trim(train_1$Ticket)=="")) # 0 rows
 
 
-hist(train_1$Fare, labels = TRUE, col = "turquoise1")
+hist(train_1$Fare, labels = TRUE, col = "dark blue", border = "red")
 NROW(which(is.na(train_1$Fare))) # 0 rows
+NROW(which(trim(train_1$Fare)=="")) # 0 rows
 barplot(table(train_1$Fare), legend.text = TRUE)
 ggplot(data.frame(train_1$Fare), aes(x=train_1$Fare)) + geom_bar(show.legend = TRUE,stat = "count")
 
@@ -58,13 +59,16 @@ ggplot(data.frame(train_1$Embarked), aes(x=train_1$Embarked)) + geom_bar(show.le
 
 View(train_1[which(trim(train_1$Embarked)==""),])
 View(train_1[train_1$Ticket==113572,])
+View(train_1[train_1$Fare<=80,])
+View(subset(train_1, train_1$Fare<=80&train_1$Sex=="female"&substr(as.character(train_1$Cabin),1,1)=="B"&train_1$Pclass=="1", select = c("Age","Embarked","Fare","Cabin") ))
 
+# Based on above observations, C seems to be closer value for missing value imputation
 # Imputing missing value of Embarked with S
-train_1$Embarked[which(trim(train_1$Embarked)=="")] = "S"
+train_1$Embarked[which(trim(train_1$Embarked)=="")] = "C"
 
 
 # Check the structure of data frame again
-str(train)
+str(train_1)
 
 
 # Create new data set excluding Name, Cabin (as it has mostly missging values)
@@ -77,27 +81,20 @@ train_new$Sex = as.factor(train_new$Sex)
 train_new$Ticket = as.factor(train_new$Ticket)
 train_new$Embarked = as.factor(train_new$Embarked)
 
-# Create dummy columns for factor variables.
-install.packages("fastDummies")
-library("fastDummies")
-
-str(train_new)
-train_new_dummy = fastDummies::dummy_columns(train_new)
-View(train_new_dummy)
 
 # Convert certain continuos variables to factors
 train_new$Survived = as.factor(train_new$Survived)
 train_new$Pclass = as.factor(train_new$Pclass)
-train_new$Embarked = as.factor(train_new$Embarked)
+
 
 #Impute missing values for age
 
 View(train_new[which(is.na(train_new$Age)),])
 str(train_new)
 View(train_new)
+hist(train_new$Fare, labels = TRUE)
 
-
-train_new$Fare = as.factor(ifelse(train_new$Fare<=100,1,ifelse(train_new$Fare<=200,2,ifelse(train_new$Fare<=300,3,ifelse(train_new$Fare<=400,4,ifelse(train_new$Fare<=500,5,6))))))
+train_new$Fare = as.factor(ifelse(train_new$Fare<=50,1,ifelse(train_new$Fare<=100,2,ifelse(train_new$Fare<=150,3,ifelse(train_new$Fare<=200,4,ifelse(train_new$Fare<=250,5,ifelse(train_new$Fare<=300,6,7)))))))
 ggplot(data.frame(train_new$Fare), aes(x=train_new$Fare))+geom_bar()
 
 #train_new$Sex = as.factor(ifelse(train_new$Sex=='male',1,0))
@@ -119,10 +116,10 @@ for(level1 in unique(train_new$Pclass)){
     cat(level2)
     for(level3 in unique(train_new$Survived)){
       cat(level3)
-      age_mod = getmode(as.numeric(train_new$Age[which(train_new$Pclass==level1&&train_new$Sex==level2&&train_new$Survived==level3)]))
+            age_mod = getmode(as.numeric(train_new$Age[which(train_new$Pclass==level1&&train_new$Sex==level2&&train_new$Survived==level3)]))
       train_new$Age[which(is.na(train_new$Age))]=ifelse(is.na(age_mod), getmode(train_new$Age[which(is.na(train_new$Age)==FALSE)]),age_mod)
       cat(age_mod)
-    }
+          }
   }
   
 }
@@ -138,17 +135,10 @@ summary(train_new$Age)
 ggplot(data.frame(train_new$Age),aes(x=train_new$Age))+geom_bar(stat = "count")
 
 # Converting AGE to categorical variable
-train_new$Age = as.factor(ifelse(train_new$Age<=10,"Infant",ifelse(train_new$Age<=25,"Young",ifelse(train_new$Age<=40,"Adult",ifelse(train_new$Age<=60,"Elder","Old")))))
+train_new$Age = as.factor(ifelse(train_new$Age<=10,"Infant",ifelse(train_new$Age<=20,"Young",ifelse(train_new$Age<=30,"Young Adult",ifelse(train_new$Age<=40,"Adult",ifelse(train_new$Age<=50,"Sr Adult",ifelse(train_new$Age<=60,"Old Adult",ifelse(train_new$Age<=70,"Old","Very Old"))))))))
 str(train_new)
 
 # Perform ANOVA for continuos variables
-str(train_new)
-mod = aov(train_new$Fare~train_new$Survived)
-summary(mod) # F value is high & P value is very less than 0.05
-# Fare is a significant variable
-
-# F Value istrain_new high & p value is low. Significant
-TukeyHSD(mod, conf.level = 0.95)
 str(train_new)
 
 mod = aov(train_new$SibSp~train_new$Survived)
@@ -162,20 +152,22 @@ chisq.test(train_new$Pclass, train_new$Survived) # Significant
 chisq.test(train_new$Sex, train_new$Survived) # Significant
 chisq.test(train_new$Age, train_new$Survived) # Significant
 chisq.test(train_new$Embarked, train_new$Survived) # Significant
+chisq.test(train_new$Fare, train_new$Survived) # Significant
 
 # After Chi square & ANOVA, only Sibsp is insignificant
 
 # Run Random Forest with new data set & get important variables
 
 View(train_new)
-train_new_upd = train_new[,!colnames(train_new) %in% c("Age_upd","Ticket")]
+train_new_upd = train_new[,colnames(train_new) %in% c("PassengerId","Pclass","Sex","Age","Parch","Fare","Embarked","Survived")]
 View(train_new_upd)
 
 install.packages("randomForest")
 library("randomForest")
 
+
 RF_Titanic= randomForest(train_new_upd$Survived ~ ., data = train_new_upd[,-2],
-                         ntree = 500, mtry=3,nodesize=10,importance = TRUE)
+                         ntree = 600, mtry=2,nodesize=10,importance = TRUE,replace=TRUE)
 print(RF_Titanic)
 
 
@@ -193,7 +185,7 @@ impVar[order(impVar[,3], decreasing=TRUE),]
 ## Tuning Random Forest
 tRF <- tuneRF(x = train_new_upd[,-c(2)], 
               y=as.factor(train_new_upd$Survived),
-              mtryStart = 3, 
+              mtryStart = 2, 
               ntreeTry=100, 
               stepFactor = 2, 
               improve = 0.001, 
@@ -233,7 +225,7 @@ decile <- function(x){
 
 
 train_new_upd$deciles <- decile(train_new_upd$predict_prob[,2])
-
+View(train_new_upd)
 
 
 library(data.table)
@@ -274,6 +266,7 @@ auc
 
 
 ## Gini Coefficient
+
 install.packages("ineq")
 library(ineq)
 gini = ineq(train_new_upd$predict_prob[,2], type="Gini")
@@ -292,13 +285,14 @@ library(rpart.plot)
 r.ctrl = rpart.control(minsplit=100, minbucket = 10, cp = 0, xval = 5)
 
 ## setting the control paramter inputs for rpart
-m1 <- rpart(formula = train_new_upd$Survived ~ ., data = train_new_upd[,!colnames(train_new_upd) %in% c("Survived","predict_class","predict_prob","deciles")], method = "class", control = r.ctrl)
+m1 <- rpart(formula = train_new_upd$Survived ~ ., data = train_new_upd[,!colnames(train_new_upd) %in% c("Survived","predict_class","predict_prob","deciles","PassengerId")], method = "class", control = r.ctrl)
 m1
 View(train_new_upd)
 
 
 install.packages("rattle")
 install.packages("RColorBrewer")
+
 library("rattle")
 library("rpart.plot")
 library("RColorBrewer")
@@ -313,21 +307,25 @@ plotcp(m1)
 
 ptree<- prune(m1, cp=m1$cptable[which.min(m1$cptable[,"xerror"]),"CP"] ,"CP")
 printcp(ptree)
+print(m1)
 fancyRpartPlot(ptree, uniform=TRUE,  main="Pruned Classification Tree")
 
 install.packages("caret")
 library("caret")
 confusionMatrix(train_new_upd$Survived, train_new_upd$predict_class)
+#78.9 accuracy
 
 # Support Vector Machines
 library("e1071")
 
-svm_titanic = svm(train_new_upd$Survived ~ train_new_upd$PassengerId+train_new_upd$Pclass+train_new_upd$Sex+train_new_upd$Age+train_new_upd$SibSp+train_new_upd$Parch+train_new_upd$Fare+train_new_upd$Embarked, data = train_new_upd[,!colnames(train_new_upd) %in% c("Survived","predict_class","predict_prob","deciles")])
+svm_titanic = svm(train_new_upd$Survived ~ train_new_upd$Pclass+train_new_upd$Sex+train_new_upd$Age+train_new_upd$Parch+train_new_upd$Fare+train_new_upd$Embarked, data = train_new_upd[,!colnames(train_new_upd) %in% c("Survived","predict_class","predict_prob","deciles","PassengerId")])
+print(svm_titanic)
 
 train_new_upd$svm_predict = predict(svm_titanic, train_new_upd)
 View(train_new_upd)
 
 confusionMatrix(train_new_upd$svm_predict, train_new_upd$Survived)
+#79.24 Accuracy
 
 # XGBOOST
 
@@ -342,13 +340,12 @@ train_new_upd_xgb = as.data.frame(train_new_upd_xgb[,!colnames(train_new_upd_xgb
 
 param       = list("objective" = "binary:logistic", # multi class classification
                    "num_class"= 2 ,  		# Number of classes in the dependent variable.
-                   "eval_metric" = "Logloss",  	 # evaluation metric 
-                   "nthread" = 8,   			 # number of threads to be used 
+                                     "nthread" = 8,   			 # number of threads to be used 
                    "max_depth" = 6,    		 # maximum depth of tree 
                    "eta" = 0.05,    			 # step size shrinkage 
                    "gamma" = 0.01,    			 # minimum loss reduction 
                    "subsample" = 0.8,    		 # part of data instances to grow tree 
-                   "colsample_bytree" = 0.5, 		 # subsample ratio of columns when constructing each tree 
+                   "colsample_bytree" = 0.4, 		 # subsample ratio of columns when constructing each tree 
                    "min_child_weight" = 50  		 # minimum sum of instance hessian weight needed in a child 
 )
 
@@ -359,7 +356,7 @@ predictors
 #xgboost works only if the labels are numeric. Hence, convert the labels (Response) to numeric.
 unique(train_new_upd_xgb$Age)
 
-train_new_upd_xgb$Age = as.factor(ifelse(train_new_upd_xgb$Age=="Infant",1,ifelse(train_new_upd_xgb$Age=="Young",2,ifelse(train_new_upd_xgb$Age=="Adult",3,ifelse(train_new_upd_xgb$Age=="Elder",4,5)))))
+train_new_upd_xgb$Age = as.factor(ifelse(train_new_upd_xgb$Age=="Infant",1,ifelse(train_new_upd_xgb$Age=="Young",2,ifelse(train_new_upd_xgb$Age=="Young Adult",3,ifelse(train_new_upd_xgb$Age=="Adult",4,ifelse(train_new_upd_xgb$Age=="Sr Adult",5,ifelse(train_new_upd_xgb$Age=="Old Adult",6,ifelse(train_new_upd_xgb$Age=="Old",7,8))))))))
 
 label = as.numeric(train_new_upd_xgb[,ncol(train_new_upd_xgb)])-1
 print(table(label))
@@ -378,3 +375,136 @@ xgbModel = xgboost(
   label = train_new_upd_xgb$Survived,
   nrounds=100)
 
+####################################################################################
+#
+# Run the models on Test data
+#
+####################################################################################
+
+# Plot historgram to view the data
+#hist(train_1$PassengerId, labels = TRUE, col = "blue")
+View(test_1) # 418 records
+
+hist(test_1$Pclass, labels = TRUE, col = "green") # 3 classes
+NROW(which(is.na(test_1$Pclass))) # 0 missing values
+
+barplot(summary(test_1$Sex), names.arg = c("Female","Male"), col = "darkred", main = "Gender wise Passenger count")
+ggplot(data.frame(test_1$Sex), aes(x=test_1$Sex), colour = "dark red")+geom_bar(stat = "count") # No Missing values
+
+hist(test_1$Age, labels = TRUE, col = "dark red", main = "Age distribution")
+NROW(which(is.na(test_1$Age))) # 86 NA values in Age
+
+hist(test_1$SibSp, labels = TRUE,
+     col = "dark green")
+NROW(which(is.na(test_1$SibSp))) # 0 missing values, Most of them dont have siblings
+ggplot(data.frame(test_1$SibSp), aes(x=test_1$SibSp) )+geom_bar(show.legend = TRUE, stat = 'count')
+
+hist(test_1$Parch, labels = TRUE, col = "dark green")
+NROW(which(is.na(test_1$Parch)))
+ggplot(data.frame(test_1$Parch), aes(x=test_1$Parch)) + geom_bar(show.legend = TRUE,na.rm = FALSE)
+
+
+barplot(summary(test_1$Ticket))
+NROW(which(trim(test_1$Ticket)=="")) # 0 rows
+
+
+hist(test_1$Fare, labels = TRUE, col = "dark blue", border = "red")
+NROW(which(is.na(test_1$Fare))) # 1 rows
+NROW(which(trim(test_1$Fare)=="")) # 0 rows
+barplot(table(test_1$Fare), legend.text = TRUE)
+ggplot(data.frame(test_1$Fare), aes(x=test_1$Fare)) + geom_bar(show.legend = TRUE,stat = "count")
+
+NROW(which(trim(test_1$Cabin)=="")) # 327 of 487 empty values. Empty Majorily
+ggplot(data.frame(test_1$Cabin), aes(x=test_1$Cabin)) + geom_bar(show.legend = TRUE,na.rm = FALSE)+ geom_smooth()
+
+NROW(which(trim(test_1$Embarked)=="")) # 0 missing values
+ggplot(data.frame(test_1$Embarked), aes(x=test_1$Embarked)) + geom_bar(show.legend = TRUE, stat = "count")
+
+# Process missing Fare value
+View(test_1)
+View(test_1[which(is.na(test_1$Fare)),])
+View(subset(test_1, test_1$Sex=="male"&test_1$Pclass==3&test_1$Embarked=="S"&test_1$Parch==0&test_1$SibSp==0, select = c("Pclass","Embarked","Fare","Age","Cabin","Sex","Ticket") ))
+
+# Based on above observations, $ 8 seems to be approximate value
+# Ticket is high for some passengers of same age group, as overall ticket value is printed
+# against each passenger. Such passengers aren't single & are a family.
+# Family ticket cost is marked against each of the passenger irrespective of age.
+# Imputing missing value of Embarked with S
+test_1$Fare[which(is.na(test_1$Fare))] = 8
+
+
+# Check the structure of data frame again
+str(test_1)
+
+
+# Create new data set excluding Name, Cabin (as it has mostly missging values)
+
+test_new = test_1[,!colnames(test_1) %in% c("Name","Cabin")]
+View(test_new)
+str(test_new)
+
+test_new$Sex = as.factor(test_new$Sex)
+test_new$Ticket = as.factor(test_new$Ticket)
+test_new$Embarked = as.factor(test_new$Embarked)
+
+
+# Convert certain continuos variables to factors
+test_new$Pclass = as.factor(test_new$Pclass)
+
+
+#Impute missing values for age
+
+View(test_new[which(is.na(test_new$Age)),])
+str(test_new)
+View(test_new)
+hist(test_new$Fare, labels = TRUE)
+
+test_new$Fare = as.factor(ifelse(test_new$Fare<=50,1,ifelse(test_new$Fare<=100,2,ifelse(test_new$Fare<=150,3,ifelse(test_new$Fare<=200,4,ifelse(test_new$Fare<=250,5,ifelse(test_new$Fare<=300,6,7)))))))
+ggplot(data.frame(test_new$Fare), aes(x=test_new$Fare))+geom_bar()
+
+
+
+# write function for mode
+
+
+test_new$Age_upd = test_new$Age
+
+for(level1 in unique(test_new$Pclass)){
+  cat(level1)
+  for(level2 in unique(test_new$Sex)){
+    cat(level2)
+    for(level3 in unique(test_new$Survived)){
+      cat(level3)
+      age_mod = getmode(as.numeric(test_new$Age[which(test_new$Pclass==level1&&test_new$Sex==level2&&test_new$Survived==level3)]))
+      test_new$Age[which(is.na(test_new$Age))]=ifelse(is.na(age_mod), getmode(test_new$Age[which(is.na(test_new$Age)==FALSE)]),age_mod)
+      cat(age_mod)
+    }
+  }
+  
+}
+
+test_new$Age[which(is.na(test_new$Age))] = getmode(test_new$Age[which(is.na(test_new$Age)==FALSE)])
+View(test_new)
+
+
+hist(test_new$Age, labels = TRUE, col = 'dark red')
+summary(test_new$Age)
+ggplot(data.frame(test_new$Age),aes(x=test_new$Age))+geom_bar(stat = "count")
+
+# Converting AGE to categorical variable
+test_new$Age = as.factor(ifelse(test_new$Age<=10,"Infant",ifelse(test_new$Age<=20,"Young",ifelse(test_new$Age<=30,"Young Adult",ifelse(test_new$Age<=40,"Adult",ifelse(test_new$Age<=50,"Sr Adult",ifelse(test_new$Age<=60,"Old Adult",ifelse(test_new$Age<=70,"Old","Very Old"))))))))
+str(test_new)
+
+
+# Prepare final data set
+test_new_upd = test_new[,colnames(test_new) %in% c("PassengerId","Pclass","Sex","Age","Parch","Fare","Embarked")]
+View(test_new_upd)
+
+#Predict using SVM
+svm_titanic = svm(train_new_upd$Survived ~ train_new_upd$Pclass+train_new_upd$Sex+train_new_upd$Age+train_new_upd$Parch+train_new_upd$Fare+train_new_upd$Embarked, data = train_new_upd)
+test_new_upd$Survived<-NA
+m<-predict(svm_titanic, newdata=test_new_upd)
+View(test_new_upd[,-1])
+View(train_new_upd)
+
+confusionMatrix(train_new_upd$svm_predict, train_new_upd$Survived)
