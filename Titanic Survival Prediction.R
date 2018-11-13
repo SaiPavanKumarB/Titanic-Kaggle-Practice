@@ -3,6 +3,8 @@ install.packages("ggplot2")
 library("ggplot2")
 install.packages("gdata")
 library("gdata")
+install.packages("plyr")
+library("plyr")
 
 # Set the working directory
 
@@ -19,10 +21,10 @@ summary(train_1)
 
 # Plot historgram to view the data
 #hist(train_1$PassengerId, labels = TRUE, col = "blue")
-hist(train_1$Survived, labels = TRUE, col = "blue") # 2 categories
+hist(train_1$Survived, labels = TRUE, col = "blue", main = "Survived Distribution") # 2 categories
 NROW(which(is.na(train_1$Survived)))
 
-hist(train_1$Pclass, labels = TRUE, col = "green") # 3 classes
+hist(train_1$Pclass, labels = TRUE, col = "green", main = "Passenger class Distribution") # 3 classes
 NROW(which(is.na(train_1$Pclass))) # 0 missing values
 
 barplot(summary(train_1$Sex), names.arg = c("Female","Male"), col = "darkred", main = "Gender wise Passenger count")
@@ -32,20 +34,21 @@ hist(train_1$Age, labels = TRUE, col = "dark red", main = "Age distribution")
 NROW(which(is.na(train_1$Age))) # 177 NA values in Age
 
 hist(train_1$SibSp, labels = TRUE,
-     col = "dark green")
+     col = "dark green", main = "Sibling Spouse Distribution")
 NROW(which(is.na(train_1$SibSp))) # 0 missing values, Most of them dont have siblings
 ggplot(data.frame(train_1$SibSp), aes(x=train_1$SibSp) )+geom_bar(show.legend = TRUE, stat = 'count')
 
-hist(train_1$Parch, labels = TRUE, col = "dark green")
-NROW(which(is.na(train_1$Parch)))
+hist(train_1$Parch, labels = TRUE, col = "dark green", main = "Parent & Children Distribution", xlab = "Parent/Children Count", ylab = 'Frequency')
+NROW(which(is.na(train_1$Parch)))#0 missing rows
 ggplot(data.frame(train_1$Parch), aes(x=train_1$Parch)) + geom_bar(show.legend = TRUE,na.rm = FALSE)
 
 
 barplot(summary(train_1$Ticket))
 NROW(which(trim(train_1$Ticket)=="")) # 0 rows
+View((count(train_1, vars = "Ticket")))
 
 
-hist(train_1$Fare, labels = TRUE, col = "dark blue", border = "red")
+hist(train_1$Fare, labels = TRUE, col = "dark blue", border = "red", main = 'Ticket Fare Distribution', xlab = "Fare")
 NROW(which(is.na(train_1$Fare))) # 0 rows
 NROW(which(trim(train_1$Fare)=="")) # 0 rows
 barplot(table(train_1$Fare), legend.text = TRUE)
@@ -65,13 +68,14 @@ View(subset(train_1, train_1$Fare<=80&train_1$Sex=="female"&substr(as.character(
 # Based on above observations, C seems to be closer value for missing value imputation
 # Imputing missing value of Embarked with S
 train_1$Embarked[which(trim(train_1$Embarked)=="")] = "C"
-
+table((train_new$Age))
+train_new$Age = as.factor(train_new$Age)
 
 # Check the structure of data frame again
 str(train_1)
 
 
-# Create new data set excluding Name, Cabin (as it has mostly missging values)
+# Create new data set excluding Name, Cabin(as it has mostly missging values)
 
 train_new = train_1[,!colnames(train_1) %in% c("Name","Cabin")]
 View(train_new)
@@ -92,11 +96,14 @@ train_new$Pclass = as.factor(train_new$Pclass)
 View(train_new[which(is.na(train_new$Age)),])
 str(train_new)
 View(train_new)
+
+#Convert Fare to a categorical variable
 hist(train_new$Fare, labels = TRUE)
 
 train_new$Fare = as.factor(ifelse(train_new$Fare<=50,1,ifelse(train_new$Fare<=100,2,ifelse(train_new$Fare<=150,3,ifelse(train_new$Fare<=200,4,ifelse(train_new$Fare<=250,5,ifelse(train_new$Fare<=300,6,7)))))))
 ggplot(data.frame(train_new$Fare), aes(x=train_new$Fare))+geom_bar()
 
+str(train_new)
 #train_new$Sex = as.factor(ifelse(train_new$Sex=='male',1,0))
 #train_new$Embarked = as.factor(ifelse(train_new$Embarked=="C",1,ifelse(train_new$Embarked=="Q",2,3)))
 
@@ -125,8 +132,10 @@ for(level1 in unique(train_new$Pclass)){
 }
 
 train_new$Age[which(is.na(train_new$Age))] = getmode(train_new$Age[which(is.na(train_new$Age)==FALSE)])
-View(train_new)
+str(train_new)
 
+
+# Check for corelation 
 mod_age = aov(train_new$Age~train_new$Survived) # p value & F stat value are less
 summary(mod_age) # InSignificant
 
@@ -147,31 +156,78 @@ summary(mod) # F statistic is low & p value is high. Insignificant
 mod = aov(train_new$Parch~train_new$Survived)
 summary(mod) # F value is slightly high & p value is just 0.01. Slightly Significant
 
+barplot(summary(train_new$Age))
+barplot(summary(train_new$Embarked))
+
 # Perform Chi square test on categorical variables
 chisq.test(train_new$Pclass, train_new$Survived) # Significant
 chisq.test(train_new$Sex, train_new$Survived) # Significant
-chisq.test(train_new$Age, train_new$Survived) # Significant
+chisq.test(train_new$Age, train_new$Survived, simulate.p.value = TRUE) # Significant
 chisq.test(train_new$Embarked, train_new$Survived) # Significant
-chisq.test(train_new$Fare, train_new$Survived) # Significant
+chisq.test(train_new$Fare, train_new$Survived, simulate.p.value = TRUE) # Significant
+table(train_new$Fare)
 
 # After Chi square & ANOVA, only Sibsp is insignificant
 
-# Run Random Forest with new data set & get important variables
+
+
+
 
 View(train_new)
-train_new_upd = train_new[,colnames(train_new) %in% c("PassengerId","Pclass","Sex","Age","Parch","Fare","Embarked","Survived")]
+train_new_upd = train_new[,colnames(train_new) %in% c("Pclass","Sex","Age","Parch","Fare","Embarked","Survived")]
 View(train_new_upd)
+
+# Perform Logistic Regression
+
+titanic_glm = glm(train_new_upd$Survived ~ ., data = train_new_upd, family = "binomial")
+summary(titanic_glm)
+train_new_LR = train_new_upd
+
+train_new_LR$predict = predict(titanic_glm, train_new_LR, type = "response")
+View(train_new_LR)
+
+library(ROCR)
+pred <- prediction(train_new_LR$predict, train_new_LR$Survived)
+perf <- performance(pred, "tpr", "fpr")
+plot(perf)
+KS <- max(attr(perf, 'y.values')[[1]]-attr(perf, 'x.values')[[1]])
+KS
+
+# Prob scalling
+train_new_LR$predict = ifelse(train_new_LR$predict<0.6,0,1)
+
+#Get confusion matrix
+library("caret")
+confusionMatrix(train_new_LR$Survived,train_new_LR$predict) #80% accuracy
+
+## Area Under Curve
+auc <- performance(pred,"auc"); 
+auc <- as.numeric(auc@y.values)
+auc
+
+
+## Gini Coefficient
+
+install.packages("ineq")
+library(ineq)
+gini = ineq(train_new_LR$predict, type="Gini")
+gini
+
+
+# Run Random Forest with new data set & get important variables
+
 
 install.packages("randomForest")
 library("randomForest")
 
+View(train_new_upd)
 
-RF_Titanic= randomForest(train_new_upd$Survived ~ ., data = train_new_upd[,-2],
+RF_Titanic= randomForest(train_new_upd$Survived ~ ., data = train_new_upd[,-1],
                          ntree = 600, mtry=2,nodesize=10,importance = TRUE,replace=TRUE)
 print(RF_Titanic)
 
 
-plot(RF_Titanic, main="")
+plot(RF_Titanic, main="Random Forest Summary")
 legend("topright", c("OOB", "0", "1"), text.col=1:6, lty=1:3, col=1:3)
 title(main="Error Rates Random Forest RFDF.dev")
 
@@ -497,14 +553,17 @@ str(test_new)
 
 
 # Prepare final data set
-test_new_upd = test_new[,colnames(test_new) %in% c("PassengerId","Pclass","Sex","Age","Parch","Fare","Embarked")]
+test_new_upd = test_new[,colnames(test_new) %in% c("Pclass","Sex","Age","Parch","Fare","Embarked")]
 View(test_new_upd)
 
-#Predict using SVM
-svm_titanic = svm(train_new_upd$Survived ~ train_new_upd$Pclass+train_new_upd$Sex+train_new_upd$Age+train_new_upd$Parch+train_new_upd$Fare+train_new_upd$Embarked, data = train_new_upd)
-test_new_upd$Survived<-NA
-m<-predict(svm_titanic, newdata=test_new_upd)
-View(test_new_upd[,-1])
-View(train_new_upd)
+#Predict using Logistic Regression
+test_new_upd$Survived = predict(titanic_glm, test_new_upd, type = "response")
+View(test_new_upd)
 
-confusionMatrix(train_new_upd$svm_predict, train_new_upd$Survived)
+test_new_upd$Survived = ifelse(test_new_upd$Survived<0.6,0,1)
+test_new_upd$PassengerId = test_1$PassengerId
+
+test_new_final = test_new_upd[,c("PassengerId","Survived")]
+View(test_new_final)
+# Write output to csv
+write.csv(test_new_final,file = "test_final.csv", col.names = TRUE)
