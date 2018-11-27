@@ -69,7 +69,7 @@ View(subset(train_1, train_1$Fare<=80&train_1$Sex=="female"&substr(as.character(
 # Imputing missing value of Embarked with S
 train_1$Embarked[which(trim(train_1$Embarked)=="")] = "C"
 table((train_new$Age))
-train_new$Age = as.factor(train_new$Age)
+
 
 # Check the structure of data frame again
 str(train_1)
@@ -121,9 +121,9 @@ for(level1 in unique(train_new$Pclass)){
   cat(level1)
   for(level2 in unique(train_new$Sex)){
     cat(level2)
-    for(level3 in unique(train_new$Survived)){
+    for(level3 in unique(train_new$Embarked)){
       cat(level3)
-            age_mod = getmode(as.numeric(train_new$Age[which(train_new$Pclass==level1&&train_new$Sex==level2&&train_new$Survived==level3)]))
+            age_mod = getmode(as.numeric(train_new$Age[which(train_new$Pclass==level1&&train_new$Sex==level2&&train_new$Embarked==level3)]))
       train_new$Age[which(is.na(train_new$Age))]=ifelse(is.na(age_mod), getmode(train_new$Age[which(is.na(train_new$Age)==FALSE)]),age_mod)
       cat(age_mod)
           }
@@ -133,6 +133,8 @@ for(level1 in unique(train_new$Pclass)){
 
 train_new$Age[which(is.na(train_new$Age))] = getmode(train_new$Age[which(is.na(train_new$Age)==FALSE)])
 str(train_new)
+View(train_new$Age)
+train_new$Age = as.integer(train_new$Age)
 
 
 # Check for corelation 
@@ -144,8 +146,8 @@ summary(train_new$Age)
 ggplot(data.frame(train_new$Age),aes(x=train_new$Age))+geom_bar(stat = "count")
 
 # Converting AGE to categorical variable
-train_new$Age = as.factor(ifelse(train_new$Age<=10,"Infant",ifelse(train_new$Age<=20,"Young",ifelse(train_new$Age<=30,"Young Adult",ifelse(train_new$Age<=40,"Adult",ifelse(train_new$Age<=50,"Sr Adult",ifelse(train_new$Age<=60,"Old Adult",ifelse(train_new$Age<=70,"Old","Very Old"))))))))
-str(train_new)
+train_new$Age = as.factor(ifelse(train_new$Age<=10,"Infant",ifelse(train_new$Age<=20,"Young",ifelse(train_new$Age<=30,"Young_Adult",ifelse(train_new$Age<=40,"Adult",ifelse(train_new$Age<=50,"Sr_Adult",ifelse(train_new$Age<=60,"Old_Adult",ifelse(train_new$Age<=70,"Old","Very_Old"))))))))
+levels(train_new$Age)
 
 # Perform ANOVA for continuos variables
 str(train_new)
@@ -178,10 +180,20 @@ train_new_upd = train_new[,colnames(train_new) %in% c("Pclass","Sex","Age","Parc
 View(train_new_upd)
 
 # Perform Logistic Regression
-
-titanic_glm = glm(train_new_upd$Survived ~ ., data = train_new_upd, family = "binomial")
-summary(titanic_glm)
+# Generate dummy columns for each of the categorical variables 
+# as logistic regression is numerical algorithm
+install.packages("dummies")
+library("dummies")
 train_new_LR = train_new_upd
+str(train_new_LR)
+train_new_dummy_variables_LR = dummy.data.frame(train_new_LR, names = c("Pclass","Sex","Age","Fare","Embarked"))
+
+View(train_new_dummy_variables_LR)
+str(train_new_dummy_variables_LR)
+
+titanic_glm = glm(train_new_dummy_variables_LR$Survived ~ train_new_dummy_variables_LR$Pclass1+train_new_dummy_variables_LR$Pclass2+train_new_dummy_variables_LR$AgeInfant+train_new_dummy_variables_LR$Sexfemale+train_new_dummy_variables_LR$EmbarkedC+train_new_dummy_variables_LR$Parch, data = train_new_dummy_variables_LR, family = "binomial", control = list(maxit=1000))
+summary(titanic_glm)
+
 
 train_new_LR$predict = predict(titanic_glm, train_new_LR, type = "response")
 View(train_new_LR)
@@ -194,7 +206,7 @@ KS <- max(attr(perf, 'y.values')[[1]]-attr(perf, 'x.values')[[1]])
 KS
 
 # Prob scalling
-train_new_LR$predict = ifelse(train_new_LR$predict<0.6,0,1)
+train_new_LR$predict = ifelse(train_new_LR$predict<0.47,0,1)
 
 #Get confusion matrix
 library("caret")
@@ -205,6 +217,9 @@ auc <- performance(pred,"auc");
 auc <- as.numeric(auc@y.values)
 auc
 
+#LIFT
+lift <- performance(pred,"lift")
+lift
 
 ## Gini Coefficient
 
@@ -221,9 +236,14 @@ install.packages("randomForest")
 library("randomForest")
 
 View(train_new_upd)
+train_new_RF = train_new_upd
 
-RF_Titanic= randomForest(train_new_upd$Survived ~ ., data = train_new_upd[,-1],
-                         ntree = 600, mtry=2,nodesize=10,importance = TRUE,replace=TRUE)
+# Check for class balancing
+table(train_new_RF$Survived)
+
+
+RF_Titanic= randomForest(train_new_RF$Survived ~ ., data = train_new_RF[,-1],
+                         ntree = 600, mtry=2,nodesize=5,importance = TRUE,replace=TRUE)
 print(RF_Titanic)
 
 
@@ -236,27 +256,27 @@ RF_Titanic$err.rate
 ## List the importance of the variables.
 impVar <- round(randomForest::importance(RF_Titanic), 2)
 impVar[order(impVar[,3], decreasing=TRUE),]
-
+View(train_new_RF[,-c(1)])
 
 ## Tuning Random Forest
-tRF <- tuneRF(x = train_new_upd[,-c(2)], 
-              y=as.factor(train_new_upd$Survived),
+tRF <- tuneRF(x = train_new_RF[,-c(1)], 
+              y=as.factor(train_new_RF$Survived),
               mtryStart = 2, 
               ntreeTry=100, 
-              stepFactor = 2, 
-              improve = 0.001, 
+              stepFactor = 1, 
+              improve = 0.01, 
               trace=FALSE, 
-              plot = FALSE,
+              plot = TRUE,
               doBest = TRUE,
-              nodesize = 150, 
+              nodesize = 50, 
               importance=FALSE
 )
 
 tRF$importance
 
-train_new_upd$predict_class = predict(tRF, train_new_upd, type = "class")
-train_new_upd$predict_prob = predict(tRF, train_new_upd, type = "prob")
-View(train_new_upd)
+train_new_RF$predict_class = predict(tRF, train_new_RF, type = "class")
+train_new_RF$predict_prob = predict(tRF, train_new_RF, type = "prob")
+View(train_new_RF)
 
 
 ## deciling
@@ -280,16 +300,16 @@ decile <- function(x){
 }
 
 
-train_new_upd$deciles <- decile(train_new_upd$predict_prob[,2])
-View(train_new_upd)
+train_new_RF$deciles <- decile(train_new_RF$predict_prob[,2])
+View(train_new_RF)
 
 
 library(data.table)
-tmp_DT = data.table(train_new_upd)
+tmp_DT = data.table(train_new_RF)
 rank <- tmp_DT[, list(
-  cnt = length(train_new_upd$Survived), 
-  cnt_resp = sum(train_new_upd$Survived == 1), 
-  cnt_non_resp = sum(train_new_upd$Survived == 0)) , 
+  cnt = length(train_new_RF$Survived), 
+  cnt_resp = sum(train_new_RF$Survived == 1), 
+  cnt_non_resp = sum(train_new_RF$Survived == 0)) , 
   by=deciles][order(-deciles)]
 rank$rrate <- round (rank$cnt_resp / rank$cnt,2);
 rank$cum_resp <- cumsum(rank$cnt_resp)
@@ -335,15 +355,15 @@ gini
 
 library(rpart)
 library(rpart.plot)
-
+train_new_CART = train_new_upd
+View(train_new_CART)
+## setting the control paramter inputs for rpart
+r.ctrl = rpart.control(minsplit=20, minbucket = 10, cp = 0, xval = 5)
 
 ## setting the control paramter inputs for rpart
-r.ctrl = rpart.control(minsplit=100, minbucket = 10, cp = 0, xval = 5)
-
-## setting the control paramter inputs for rpart
-m1 <- rpart(formula = train_new_upd$Survived ~ ., data = train_new_upd[,!colnames(train_new_upd) %in% c("Survived","predict_class","predict_prob","deciles","PassengerId")], method = "class", control = r.ctrl)
+m1 <- rpart(formula = train_new_CART$Survived ~ ., data = train_new_CART[,!colnames(train_new_upd) %in% c("Survived")], method = "class", control = r.ctrl)
 m1
-View(train_new_upd)
+View(train_new_CART)
 
 
 install.packages("rattle")
@@ -368,68 +388,78 @@ fancyRpartPlot(ptree, uniform=TRUE,  main="Pruned Classification Tree")
 
 install.packages("caret")
 library("caret")
-confusionMatrix(train_new_upd$Survived, train_new_upd$predict_class)
+View(train_new_CART)
+confusionMatrix(train_new_CART$Survived, train_new_CART$predict_class)
 #78.9 accuracy
 
 # Support Vector Machines
 library("e1071")
+train_new_SVM = train_new_upd
+View(train_new_SVM)
+# Create dummy variables for SVM
+train_new_SVM_dummy = dummies::dummy.data.frame(train_new_SVM, names = c("Pclass","Sex","Age","Parch","Fare","Embarked"))
+View(train_new_SVM_dummy)
 
-svm_titanic = svm(train_new_upd$Survived ~ train_new_upd$Pclass+train_new_upd$Sex+train_new_upd$Age+train_new_upd$Parch+train_new_upd$Fare+train_new_upd$Embarked, data = train_new_upd[,!colnames(train_new_upd) %in% c("Survived","predict_class","predict_prob","deciles","PassengerId")])
+svm_titanic = svm(train_new_SVM_dummy$Survived ~ ., data = train_new_SVM_dummy)
 print(svm_titanic)
 
-train_new_upd$svm_predict = predict(svm_titanic, train_new_upd)
+train_new_SVM_dummy$svm_predict = predict(svm_titanic, train_new_SVM_dummy)
+View(train_new_SVM_dummy)
+
+confusionMatrix(train_new_SVM_dummy$svm_predict, train_new_SVM_dummy$Survived)
+#83.61 Accuracy
+
+##########################################
+  
+# XGBOOST 
+
+##########################################
+train_new_XGB = train_new_upd
 View(train_new_upd)
-
-confusionMatrix(train_new_upd$svm_predict, train_new_upd$Survived)
-#79.24 Accuracy
-
-# XGBOOST
-
-train_new_upd_xgb = train_new_upd
 
 # XGBOOST works only on numeric data
 install.packages("xgboost")
 library("xgboost")
 
-# Convert data frame to numeric
-train_new_upd_xgb = as.data.frame(train_new_upd_xgb[,!colnames(train_new_upd_xgb) %in% c("predict_class","predict_prob","deciles")])
+# Convert data frame to numeric, by converting categorical variables to dummy variables
+train_new_xgb_dummy = dummies::dummy.data.frame(train_new_XGB, names = c("Pclass","Sex","Parch","Age","Fare","Embarked"))
+train_new_xgb_dummy = as.data.frame(train_new_xgb_dummy)
+str(train_new_xgb_dummy)
 
 param       = list("objective" = "binary:logistic", # multi class classification
-                   "num_class"= 2 ,  		# Number of classes in the dependent variable.
-                                     "nthread" = 8,   			 # number of threads to be used 
+                    "nthread" = 8,   			 # number of threads to be used 
                    "max_depth" = 6,    		 # maximum depth of tree 
                    "eta" = 0.05,    			 # step size shrinkage 
                    "gamma" = 0.01,    			 # minimum loss reduction 
-                   "subsample" = 0.8,    		 # part of data instances to grow tree 
-                   "colsample_bytree" = 0.4, 		 # subsample ratio of columns when constructing each tree 
-                   "min_child_weight" = 50  		 # minimum sum of instance hessian weight needed in a child 
+                   "subsample" = 0.6,    		 # part of data instances to grow tree 
+                   "colsample_bytree" = 0.2, 		 # subsample ratio of columns when constructing each tree 
+                   "min_child_weight" = 10  		 # minimum sum of instance hessian weight needed in a child 
 )
 
 #Identify the Predictors and the dependent variable, aka label.
 
-predictors = colnames(train_new_upd_xgb[-ncol(train_new_upd_xgb)])
+predictors = colnames(train_new_xgb_dummy[-1])
 predictors
-#xgboost works only if the labels are numeric. Hence, convert the labels (Response) to numeric.
-unique(train_new_upd_xgb$Age)
 
-train_new_upd_xgb$Age = as.factor(ifelse(train_new_upd_xgb$Age=="Infant",1,ifelse(train_new_upd_xgb$Age=="Young",2,ifelse(train_new_upd_xgb$Age=="Young Adult",3,ifelse(train_new_upd_xgb$Age=="Adult",4,ifelse(train_new_upd_xgb$Age=="Sr Adult",5,ifelse(train_new_upd_xgb$Age=="Old Adult",6,ifelse(train_new_upd_xgb$Age=="Old",7,8))))))))
+# xgboost works only if the numeric labels start from 0. Hence, subtract 1 from the label.
 
-label = as.numeric(train_new_upd_xgb[,ncol(train_new_upd_xgb)])-1
-print(table(label))
-train_new_upd_xgb$Pclass=as.numeric(train_new_upd_xgb$Pclass)
-train_new_upd_xgb$Age=as.numeric(train_new_upd_xgb$Age)
-train_new_upd_xgb$Sex=as.numeric(train_new_upd_xgb$Sex)
-train_new_upd_xgb$Fare=as.numeric(train_new_upd_xgb$Fare)
-train_new_upd_xgb$Embarked=as.numeric(train_new_upd_xgb$Embarked)
-train_new_upd_xgb=train_new_upd_xgb[,!colnames(train_new_upd_xgb) %in% c("svm_predict")]
-train_new_upd_xgb$Survived=as.numeric(train_new_upd_xgb$Survived)
+label = as.numeric(train_new_xgb_dummy[,ncol(train_new_xgb_dummy)])-1
+label
 
+print(table (label))
+str(train_new_xgb_dummy)
+View(train_new_xgb_dummy)
 
-xgbModel = xgboost(
+train_new_xgb_dummy[] <- lapply(train_new_xgb_dummy[,c(-1)], as.numeric)
+
+xgbModel_Titanic = xgboost(
   param=param,
-  data =as.matrix(train_new_upd_xgb[,predictors]),
-  label = train_new_upd_xgb$Survived,
+  data =as.matrix(train_new_xgb_dummy[,predictors]),
+  label = as.numeric(train_new_xgb_dummy$Survived),
   nrounds=100)
+
+summary(xgbModel_Titanic)
+xgb.importance(feature_names = predictors, data = train_new_xgb_dummy, model = xgbModel_Titanic )
 
 ####################################################################################
 #
@@ -440,6 +470,7 @@ xgbModel = xgboost(
 # Plot historgram to view the data
 #hist(train_1$PassengerId, labels = TRUE, col = "blue")
 View(test_1) # 418 records
+
 
 hist(test_1$Pclass, labels = TRUE, col = "green") # 3 classes
 NROW(which(is.na(test_1$Pclass))) # 0 missing values
@@ -524,12 +555,13 @@ ggplot(data.frame(test_new$Fare), aes(x=test_new$Fare))+geom_bar()
 
 
 test_new$Age_upd = test_new$Age
+str(test_new)
 
 for(level1 in unique(test_new$Pclass)){
   cat(level1)
   for(level2 in unique(test_new$Sex)){
     cat(level2)
-    for(level3 in unique(test_new$Survived)){
+    for(level3 in unique(test_new$Embarked)){
       cat(level3)
       age_mod = getmode(as.numeric(test_new$Age[which(test_new$Pclass==level1&&test_new$Sex==level2&&test_new$Survived==level3)]))
       test_new$Age[which(is.na(test_new$Age))]=ifelse(is.na(age_mod), getmode(test_new$Age[which(is.na(test_new$Age)==FALSE)]),age_mod)
@@ -542,13 +574,15 @@ for(level1 in unique(test_new$Pclass)){
 test_new$Age[which(is.na(test_new$Age))] = getmode(test_new$Age[which(is.na(test_new$Age)==FALSE)])
 View(test_new)
 
+test_new$Age = as.integer(test_new$Age)
+
 
 hist(test_new$Age, labels = TRUE, col = 'dark red')
 summary(test_new$Age)
 ggplot(data.frame(test_new$Age),aes(x=test_new$Age))+geom_bar(stat = "count")
 
 # Converting AGE to categorical variable
-test_new$Age = as.factor(ifelse(test_new$Age<=10,"Infant",ifelse(test_new$Age<=20,"Young",ifelse(test_new$Age<=30,"Young Adult",ifelse(test_new$Age<=40,"Adult",ifelse(test_new$Age<=50,"Sr Adult",ifelse(test_new$Age<=60,"Old Adult",ifelse(test_new$Age<=70,"Old","Very Old"))))))))
+test_new$Age = as.factor(ifelse(test_new$Age<=10,"Infant",ifelse(test_new$Age<=20,"Young",ifelse(test_new$Age<=30,"Young_Adult",ifelse(test_new$Age<=40,"Adult",ifelse(test_new$Age<=50,"Sr_Adult",ifelse(test_new$Age<=60,"Old_Adult",ifelse(test_new$Age<=70,"Old","Very_Old"))))))))
 str(test_new)
 
 
@@ -557,12 +591,22 @@ test_new_upd = test_new[,colnames(test_new) %in% c("Pclass","Sex","Age","Parch",
 View(test_new_upd)
 
 #Predict using Logistic Regression
-test_new_upd$Survived = predict(titanic_glm, test_new_upd, type = "response")
-View(test_new_upd)
+# Create numerical data set
+test_new_upd_dummy = dummy.data.frame(test_new_upd, names = c("Pclass","Sex","Age","Fare","Embarked"))
+test_new_upd_dummy_Imp_var = test_new_upd_dummy[,c("Pclass1","Pclass2","AgeInfant","Sexfemale","EmbarkedC","Parch")]
+test_new_upd_dummy$predict = predict(titanic_glm, newdata = test_new_upd_dummy_Imp_var )
+View(test_new_upd_dummy_Imp_var)
 
-test_new_upd$Survived = ifelse(test_new_upd$Survived<0.6,0,1)
+
+# Use SVM 
+View(test_new_upd_dummy)
+predictors
+test_new_upd_dummy[] = lapply(test_new_upd_dummy, as.numeric)
+test_new_upd_dummy$Survived = predict(xgbModel_Titanic,as.matrix(test_new_upd_dummy ))
+
+test_new_upd_dummy$Survived = ifelse(test_new_upd_dummy$Survived<0.27,0,1)
 test_new_upd$PassengerId = test_1$PassengerId
-
+test_new_upd$Survived = test_new_upd_dummy$Survived
 test_new_final = test_new_upd[,c("PassengerId","Survived")]
 View(test_new_final)
 # Write output to csv
